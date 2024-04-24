@@ -39,6 +39,18 @@ import org.springframework.util.StringUtils;
  */
 class StartupInfoLogger {
 
+	/**
+	 * 关于变量sourceClass使用了final修饰，使用final修饰的变量不是不能被修改吗？
+	 * 关键在于初始化，在变量定义的时候其实没有初始化，一旦初始化后就不能修改赋值了，不然编译器会报错
+	 *
+	 * Class<?> 属于泛型编程中的通配符(Wildcard),通常有指定继承父类的子类的通配符，例如：
+	 * public static void printBuddies(Pair<? extends Employee> p) {
+	 *     ......
+	 * }
+	 * 这里Pair的泛型参数就是满足继承了Employee的类。
+	 * 回到Class<?>,就是通配符参数，表达的意思就是任意的类
+	 *
+	 */
 	private final Class<?> sourceClass;
 
 	StartupInfoLogger(Class<?> sourceClass) {
@@ -58,6 +70,11 @@ class StartupInfoLogger {
 	}
 
 	private CharSequence getStartingMessage() {
+		/**
+		 * 下面的StringBuilder添加log的方式实现了设计模式中的装饰模式
+		 * 每过一道，增加一次修饰，把每一道工序抽离出来进行单独逻辑处理
+		 * 这是一种很好的编程方式，而不是把全部逻辑放在这个方法里实现
+		 */
 		StringBuilder message = new StringBuilder();
 		message.append("Starting");
 		appendAotMode(message);
@@ -154,5 +171,27 @@ class StartupInfoLogger {
 			return null;
 		}
 	}
+
+	/**
+	 * 关于功能性接口(@FunctionalInterface修饰的接口),就定义了一个方法，可以使用lambda进行实现。
+	 * 像上面的调用过程中
+	 * private void append(StringBuilder message, String prefix, Callable<Object> call,
+	 * String defaultValue) {
+	 *
+	 * }
+	 * 这个append方法使用了Callable<Object> call这个参数，这就是一个功能性接口，而在调用的地方使用
+	 * append(message, "", () -> AotDetector.useGeneratedArtifacts() ? "AOT-processed" : null);
+	 * 其中的Callable<Object> call参数的入参就是一个是实现了Callable接口的lambda(可以理解为类)
+	 * 上面的() -> AotDetector.useGeneratedArtifacts() ? "AOT-processed" : null是lambda表达式，
+	 * 可以使用下面的代码代替：
+	 * () -> {return (this.sourceClass != null) ? ClassUtils.getShortName(this.sourceClass) : "application";}
+	 *
+	 * 下面是关于Callable功能性接口的描述
+	 * A task that returns a result and may throw an exception. Implementors define a single
+	 * method with no arguments called call. The Callable interface is similar to Runnable,
+	 * in that both are designed for classes whose instances are potentially executed by
+	 * another thread. A Runnable, however, does not return a result and cannot throw a checked exception.
+	 *
+	 */
 
 }
