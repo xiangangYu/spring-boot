@@ -87,7 +87,17 @@ public enum WebApplicationType {
 				hints.reflection().registerType(TypeReference.of(typeName));
 			}
 		}
-
 	}
+
+	/**
+	 * hints:提示
+	 *
+	 * 以前对于枚举的了解或用法，更多是定义一个枚举类型然后在里面列出相应的枚举值，作为类别区分而
+	 * WebApplicationType算是提高了认知：
+	 * 枚举里面是可以定义变量常量的，例如：SERVLET_INDICATOR_CLASSES，WEBMVC_INDICATOR_CLASS，
+	 * WEBFLUX_INDICATOR_CLASS，JERSEY_INDICATOR_CLASS
+	 * 枚举里面还可以定义逻辑方法，例如：deduceFromClasspath
+	 * 甚至枚举里面可以定义内部类，例如：WebApplicationTypeRuntimeHints
+	 */
 
 }
