@@ -41,4 +41,8 @@ public interface SpringBootExceptionReporter {
 	 */
 	boolean reportException(Throwable failure);
 
+	/**
+	 * SpringBootExceptionReporter 异常报告ExceptionReporter 使用的是reporter
+	 */
+
 }
