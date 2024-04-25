@@ -73,4 +73,10 @@ public @interface SpringBootConfiguration {
 	@AliasFor(annotation = Configuration.class)
 	boolean proxyBeanMethods() default true;
 
+	/**
+	 * idiomatic 惯用
+	 * in case of 如果
+	 * come with 伴随
+	 */
+
 }
