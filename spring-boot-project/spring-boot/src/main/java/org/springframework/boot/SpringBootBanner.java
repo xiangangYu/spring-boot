@@ -56,4 +56,9 @@ class SpringBootBanner implements Banner {
 		printStream.println();
 	}
 
+	/**
+	 * 这个SpringBootBanner的功能非常简单，就是打印默认的Spring Banner
+	 * 使用PrintStream打印，一般我们在测试环境使用System.out.println进行console打印
+	 */
+
 }
