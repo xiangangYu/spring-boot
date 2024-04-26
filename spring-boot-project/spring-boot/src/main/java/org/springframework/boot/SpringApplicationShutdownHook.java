@@ -48,6 +48,13 @@ class SpringApplicationShutdownHook implements Runnable {
 
 	private static final int SLEEP = 50;
 
+	/**
+	 * 分钟转毫秒 使用TimeUnit.MINUTES.toMillis
+	 * 1分钟：60秒
+	 * 1秒：1000毫秒
+	 * 1毫秒：1000微秒
+	 * 1微秒：1000纳秒
+	 */
 	private static final long TIMEOUT = TimeUnit.MINUTES.toMillis(10);
 
 	private static final Log logger = LogFactory.getLog(SpringApplicationShutdownHook.class);
@@ -114,6 +121,9 @@ class SpringApplicationShutdownHook implements Runnable {
 		contexts.forEach(this::closeAndWait);
 		closedContexts.forEach(this::closeAndWait);
 		actions.forEach(Runnable::run);
+		/**
+		 * 上面这种使用forEach迭代进行lambda执行的方式值得学习
+		 */
 	}
 
 	boolean isApplicationContextRegistered(ConfigurableApplicationContext context) {
@@ -218,6 +228,10 @@ class SpringApplicationShutdownHook implements Runnable {
 			// the {@code close()} method returns.
 			synchronized (SpringApplicationShutdownHook.class) {
 				ApplicationContext applicationContext = event.getApplicationContext();
+				/**
+				 * 类名.this一般用于内部类调用外部类的对象时使用，因为内部类使用this.
+				 * 调用的是内部类的域和方法，为了加以区别，所以使用类名.this如下
+				 */
 				SpringApplicationShutdownHook.this.contexts.remove(applicationContext);
 				SpringApplicationShutdownHook.this.closedContexts
 					.add((ConfigurableApplicationContext) applicationContext);
