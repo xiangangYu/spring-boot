@@ -32,6 +32,7 @@ import org.assertj.core.api.Condition;
 import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.TaskOutcome;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledForJreRange;
 import org.junit.jupiter.api.condition.JRE;
@@ -150,6 +151,7 @@ class PaketoBuilderTests {
 	}
 
 	@Test
+	@Disabled("0.4.292 of the builder launches an unpacked jar rather than the script in bin")
 	void bootDistZipJarApp() throws Exception {
 		writeMainClass();
 		String projectName = this.gradleBuild.getProjectDir().getName();
@@ -300,7 +302,6 @@ class PaketoBuilderTests {
 	}
 
 	@Test
-	@EnabledForJreRange(max = JRE.JAVA_17)
 	void nativeApp() throws Exception {
 		this.gradleBuild.expectDeprecationMessages("uses or overrides a deprecated API");
 		this.gradleBuild.expectDeprecationMessages("has been deprecated and marked for removal");
