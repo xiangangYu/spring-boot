@@ -1,9 +1,9 @@
 [[actuator.micrometer-tracing]]
 = Tracing
 
-Spring Boot Actuator provides dependency management and auto-configuration for https://micrometer.io/docs/tracing[Micrometer Tracing], a facade for popular tracer libraries.
+Spring Boot Actuator provides dependency management and auto-configuration for {url-micrometer-tracing-docs}[Micrometer Tracing], a facade for popular tracer libraries.
 
-TIP: To learn more about Micrometer Tracing capabilities, see its https://micrometer.io/docs/tracing[reference documentation].
+TIP: To learn more about Micrometer Tracing capabilities, see its {url-micrometer-tracing-docs}[reference documentation].
 
 
 
@@ -21,7 +21,7 @@ Spring Boot ships auto-configuration for the following tracers:
 == Getting Started
 
 We need an example application that we can use to get started with tracing.
-For our purposes, the simple "`Hello World!`" web application that's covered in the "`xref:tutorial:first-application/index.adoc[Developing Your First Spring Boot Application]`" section will suffice.
+For our purposes, the simple "`Hello World!`" web application that's covered in the xref:tutorial:first-application/index.adoc[] section will suffice.
 We're going to use the OpenTelemetry tracer with Zipkin as trace backend.
 
 To recap, our main application code looks like this:
@@ -34,7 +34,7 @@ Now we have to add the following dependencies:
 
 * `org.springframework.boot:spring-boot-starter-actuator`
 * `io.micrometer:micrometer-tracing-bridge-otel` - bridges the Micrometer Observation API to OpenTelemetry.
-* `io.opentelemetry:opentelemetry-exporter-zipkin` - reports https://micrometer.io/docs/tracing#_glossary[traces] to Zipkin.
+* `io.opentelemetry:opentelemetry-exporter-zipkin` - reports {url-micrometer-tracing-docs}/glossary[traces] to Zipkin.
 
 Add the following application properties:
 
@@ -93,14 +93,17 @@ logging:
 NOTE: In the example above, configprop:logging.include-application-name[] is set to `false` to avoid the application name being duplicated in the log messages (configprop:logging.pattern.correlation[] already contains it).
 It's also worth mentioning that configprop:logging.pattern.correlation[] contains a trailing space so that it is separated from the logger name that comes right after it by default.
 
+TIP: Correlation IDs rely on context propagation.
+Please read xref:reference:actuator/observability.adoc#actuator.observability.context-propagation[this documentation for more details].
+
 
 
 [[actuator.micrometer-tracing.propagating-traces]]
 == Propagating Traces
 
-To automatically propagate traces over the network, use the auto-configured xref:io/rest-client.adoc#io.rest-client.resttemplate[`RestTemplateBuilder`] or xref:io/rest-client.adoc#io.rest-client.webclient[`WebClient.Builder`] to construct the client.
+To automatically propagate traces over the network, use the auto-configured xref:io/rest-client.adoc#io.rest-client.resttemplate[`RestTemplateBuilder`], xref:io/rest-client.adoc#io.rest-client.restclient[`RestClient.Builder`] or xref:io/rest-client.adoc#io.rest-client.webclient[`WebClient.Builder`] to construct the client.
 
-WARNING: If you create the `WebClient` or the `RestTemplate` without using the auto-configured builders, automatic trace propagation won't work!
+WARNING: If you create the javadoc:org.springframework.web.client.RestTemplate[], the javadoc:org.springframework.web.client.RestClient[] or the javadoc:org.springframework.web.reactive.function.client.WebClient[] without using the auto-configured builders, automatic trace propagation won't work!
 
 
 
@@ -147,6 +150,10 @@ Tracing with OpenTelemetry and reporting using OTLP requires the following depen
 
 Use the `management.otlp.tracing.*` configuration properties to configure reporting using OTLP.
 
+NOTE: If you need to apply advanced customizations to OTLP span exporters, consider registering javadoc:org.springframework.boot.actuate.autoconfigure.tracing.otlp.OtlpHttpSpanExporterBuilderCustomizer[] or javadoc:org.springframework.boot.actuate.autoconfigure.tracing.otlp.OtlpGrpcSpanExporterBuilderCustomizer[] beans.
+These will be invoked before the creation of the `OtlpHttpSpanExporter` or `OtlpGrpcSpanExporter`.
+The customizers take precedence over anything applied by the auto-configuration.
+
 
 
 [[actuator.micrometer-tracing.tracer-implementations.brave-zipkin]]
@@ -156,8 +163,6 @@ Tracing with OpenZipkin Brave and reporting to Zipkin requires the following dep
 
 * `io.micrometer:micrometer-tracing-bridge-brave` - bridges the Micrometer Observation API to Brave.
 * `io.zipkin.reporter2:zipkin-reporter-brave` - reports traces to Zipkin.
-
-NOTE: If your project doesn't use Spring MVC or Spring WebFlux, the `io.zipkin.reporter2:zipkin-sender-urlconnection` dependency is needed, too.
 
 Use the `management.zipkin.tracing.*` configuration properties to configure reporting to Zipkin.
 
@@ -178,7 +183,7 @@ Use the `management.wavefront.*` configuration properties to configure reporting
 [[actuator.micrometer-tracing.micrometer-observation]]
 == Integration with Micrometer Observation
 
-A `TracingAwareMeterObservationHandler` is automatically registered on the `ObservationRegistry`, which creates spans for every completed observation.
+A javadoc:io.micrometer.tracing.handler.TracingAwareMeterObservationHandler[] is automatically registered on the javadoc:io.micrometer.observation.ObservationRegistry[], which creates spans for every completed observation.
 
 
 
@@ -186,20 +191,20 @@ A `TracingAwareMeterObservationHandler` is automatically registered on the `Obse
 == Creating Custom Spans
 
 You can create your own spans by starting an observation.
-For this, inject `ObservationRegistry` into your component:
+For this, inject javadoc:io.micrometer.observation.ObservationRegistry[] into your component:
 
 include-code::CustomObservation[]
 
 This will create an observation named "some-operation" with the tag "some-tag=some-value".
 
-TIP: If you want to create a span without creating a metric, you need to use the https://micrometer.io/docs/tracing#_using_micrometer_tracing_directly[lower-level `Tracer` API] from Micrometer.
+TIP: If you want to create a span without creating a metric, you need to use the {url-micrometer-tracing-docs}/api[lower-level `Tracer` API] from Micrometer.
 
 
 
 [[actuator.micrometer-tracing.baggage]]
 == Baggage
 
-You can create baggage with the `Tracer` API:
+You can create baggage with the javadoc:io.micrometer.tracing.Tracer[] API:
 
 include-code::CreatingBaggage[]
 
@@ -217,5 +222,5 @@ For the example above, setting this property to `baggage1` results in an MDC ent
 [[actuator.micrometer-tracing.tests]]
 == Tests
 
-Tracing components which are reporting data are not auto-configured when using `@SpringBootTest`.
-See xref:testing/spring-boot-applications.adoc#testing.spring-boot-applications.tracing[the testing section] for more details.
+Tracing components which are reporting data are not auto-configured when using javadoc:org.springframework.boot.test.context.SpringBootTest[format=annotation].
+See xref:testing/spring-boot-applications.adoc#testing.spring-boot-applications.tracing[] for more details.

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2023 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import org.springframework.boot.autoconfigure.security.reactive.ReactiveSecurity
 import org.springframework.boot.autoconfigure.web.reactive.HttpHandlerAutoConfiguration;
 import org.springframework.boot.autoconfigure.web.reactive.WebFluxAutoConfiguration;
 import org.springframework.boot.test.context.runner.ReactiveWebApplicationContextRunner;
+import org.springframework.boot.testsupport.classpath.resources.WithResource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.graphql.execution.ErrorType;
@@ -45,6 +46,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.config.web.server.ServerHttpSecurity.CsrfSpec;
 import org.springframework.security.core.userdetails.MapReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -59,6 +61,25 @@ import static org.springframework.security.config.Customizer.withDefaults;
  *
  * @author Brian Clozel
  */
+@WithResource(name = "graphql/types/book.graphqls", content = """
+		type Book {
+		    id: ID
+		    name: String
+		    pageCount: Int
+		    author: String
+		}
+		""")
+@WithResource(name = "graphql/schema.graphqls", content = """
+		type Query {
+		    greeting(name: String! = "Spring"): String!
+		    bookById(id: ID): Book
+		    books: BookConnection
+		}
+
+		type Subscription {
+		    booksOnSale(minPages: Int) : Book!
+		}
+		""")
 class GraphQlWebFluxSecurityAutoConfigurationTests {
 
 	private static final String BASE_URL = "https://spring.example.org/graphql";
@@ -161,7 +182,7 @@ class GraphQlWebFluxSecurityAutoConfigurationTests {
 
 		@Bean
 		SecurityWebFilterChain springWebFilterChain(ServerHttpSecurity http) {
-			return http.csrf((spec) -> spec.disable())
+			return http.csrf(CsrfSpec::disable)
 				// Demonstrate that method security works
 				// Best practice to use both for defense in depth
 				.authorizeExchange((requests) -> requests.anyExchange().permitAll())

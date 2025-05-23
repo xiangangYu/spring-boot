@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.Map;
 
 import org.awaitility.Awaitility;
+import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.testcontainers.containers.GenericContainer;
@@ -56,7 +57,13 @@ class SniIntegrationTests {
 	void home(String webStack, String server) {
 		try (ApplicationContainer serverContainer = new ServerApplicationContainer(webStack, server)) {
 			serverContainer.start();
-			Awaitility.await().atMost(Duration.ofSeconds(60)).until(serverContainer::isRunning);
+			try {
+				Awaitility.await().atMost(Duration.ofSeconds(60)).until(serverContainer::isRunning);
+			}
+			catch (ConditionTimeoutException ex) {
+				System.out.println(serverContainer.getLogs());
+				throw ex;
+			}
 			String serverLogs = serverContainer.getLogs();
 			assertThat(serverLogs).contains(SERVER_START_MESSAGES.get(server));
 			try (ApplicationContainer clientContainer = new ClientApplicationContainer()) {
@@ -99,7 +106,7 @@ class SniIntegrationTests {
 
 		protected ApplicationContainer(String appName, String fileSuffix, String... entryPointArgs) {
 			super(new ImageFromDockerfile().withFileFromFile("spring-boot.jar", findJarFile(appName, fileSuffix))
-				.withDockerfileFromBuilder((builder) -> builder.from("eclipse-temurin:17-jre-jammy")
+				.withDockerfileFromBuilder((builder) -> builder.from("eclipse-temurin:17-jre-noble")
 					.add("spring-boot.jar", "/spring-boot.jar")
 					.entryPoint(buildEntryPoint(entryPointArgs))));
 			withExposedPorts(SERVER_PORT);

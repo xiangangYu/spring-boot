@@ -115,13 +115,25 @@ The following table summarizes the available parameters for `docker.builderRegis
 
 For more details, see also xref:build-image.adoc#build-image.examples.docker[examples].
 
+[NOTE]
+====
+If credentials are not provided, the plugin reads the user's existing Docker configuration file (typically located at `$HOME/.docker/config.json`) to determine authentication methods.
+Using these methods, the plugin attempts to provide authentication credentials for the requested image.
+
+The plugin supports the following authentication methods:
+
+- *Credential Helpers*: External tools configured in the Docker configuration file to provide credentials for specific registries. For example, tools like `osxkeychain` or `ecr-login` handle authentication for certain registries.
+- *Credential Store*: A default fallback mechanism that securely stores and retrieves credentials (e.g., `desktop` for Docker Desktop).
+- *Static Credentials*: Credentials that are stored directly in the Docker configuration file under the `auths` section.
+====
+
 
 
 [[build-image.customization]]
 == Image Customizations
 
-The plugin invokes a {url-buildpacks-docs}/concepts/components/builder/[builder] to orchestrate the generation of an image.
-The builder includes multiple {url-buildpacks-docs}/concepts/components/buildpack[buildpacks] that can inspect the application to influence the generated image.
+The plugin invokes a {url-buildpacks-docs}/for-app-developers/concepts/builder/[builder] to orchestrate the generation of an image.
+The builder includes multiple {url-buildpacks-docs}/for-app-developers/concepts/buildpack/[buildpacks] that can inspect the application to influence the generated image.
 By default, the plugin chooses a builder image.
 The name of the generated image is deduced from project properties.
 
@@ -134,8 +146,20 @@ The following table summarizes the available parameters and their default values
 
 | `builder` +
 (`spring-boot.build-image.builder`)
-| Name of the Builder image to use.
-| `paketobuildpacks/builder-jammy-base:latest`
+| Name of the builder image to use.
+| `paketobuildpacks/builder-noble-java-tiny:latest`
+
+| `trustBuilder` +
+(`spring-boot.build-image.trustBuilder`)
+| Whether to treat the builder as {url-buildpacks-docs}/for-platform-operators/how-to/integrate-ci/pack/concepts/trusted_builders/#what-is-a-trusted-builder[trusted].
+| `true` if the builder is one of `paketobuildpacks/builder-noble-java-tiny`, `paketobuildpacks/builder-jammy-java-tiny`, `paketobuildpacks/builder-jammy-tiny`, `paketobuildpacks/builder-jammy-base`, `paketobuildpacks/builder-jammy-full`, `paketobuildpacks/builder-jammy-buildpackless-tiny`, `paketobuildpacks/builder-jammy-buildpackless-base`, `paketobuildpacks/builder-jammy-buildpackless-full`, `gcr.io/buildpacks/builder`, `heroku/builder`; `false` otherwise.
+
+| `imagePlatform` +
+(`spring-boot.build-image.imagePlatform`)
+a|The platform (operating system and architecture) of any builder, run, and buildpack images that are pulled.
+Must be in the form of `OS[/architecture[/variant]]`, such as `linux/amd64`, `linux/arm64`, or `linux/arm/v5`.
+Refer to documentation of the builder being used to determine the image OS and architecture options available.
+| No default value, indicating that the platform of the host machine should be used.
 
 | `runImage` +
 (`spring-boot.build-image.runImage`)
@@ -144,13 +168,13 @@ The following table summarizes the available parameters and their default values
 
 | `name` +
 (`spring-boot.build-image.imageName`)
-| xref:api:java/org/springframework/boot/buildpack/platform/docker/type/ImageReference.html#of-java.lang.String-[Image name] for the generated image.
+| javadoc:org.springframework.boot.buildpack.platform.docker.type.ImageName#of-java.lang.String-[Image name] for the generated image.
 | `docker.io/library/` +
 `${project.artifactId}:${project.version}`
 
 | `pullPolicy` +
 (`spring-boot.build-image.pullPolicy`)
-| xref:api:java/org/springframework/boot/buildpack/platform/build/PullPolicy.html[Policy] used to determine when to pull the builder and run images from the registry.
+| javadoc:org.springframework.boot.buildpack.platform.build.PullPolicy[Policy] used to determine when to pull the builder and run images from the registry.
 Acceptable values are `ALWAYS`, `NEVER`, and `IF_NOT_PRESENT`.
 | `ALWAYS`
 
@@ -226,7 +250,7 @@ The value can be a named volume or a bind mount location.
 (`spring-boot.build-image.createdDate`)
 | A date that will be used to set the `Created` field in the generated image's metadata.
 The value must be a string in the ISO 8601 instant format, or `now` to use the current date and time.
-| A fixed date that enables https://buildpacks.io/docs/features/reproducibility/[build reproducibility].
+| A fixed date that enables {url-buildpacks-docs}/for-app-developers/concepts/reproducibility/[build reproducibility].
 
 
 | `applicationDirectory` +
@@ -250,7 +274,7 @@ For more details, see also xref:build-image.adoc#build-image.examples[examples].
 
 
 [[build-image.customization.tags]]
-=== Tags format
+=== Tags Format
 
 The values provided to the `tags` option should be *full* image references.
 The accepted format is `[domainHost:port/][path/]name[:tag][@digest]`.
@@ -389,7 +413,7 @@ A path to a gzipped tar file containing buildpack content:
 * `\file:///path/to/buildpack.tgz`
 * `/path/to/buildpack.tgz`
 
-An OCI image containing a https://buildpacks.io/docs/buildpack-author-guide/package-a-buildpack/[packaged buildpack]:
+An OCI image containing a {url-buildpacks-docs}/for-buildpack-authors/how-to/distribute-buildpacks/package-buildpack/[packaged buildpack]:
 
 * `docker://example/buildpack`
 * `docker:///example/buildpack:latest`
@@ -511,7 +535,12 @@ TIP: With the `colima` CLI installed, the command `podman info --format='{{.Host
 ==== Docker Configuration for Colima
 
 The plugin can communicate with the Docker daemon provided by https://github.com/abiosoft/colima[Colima].
-The `DOCKER_HOST` environment variable can be set by using the command `export DOCKER_HOST=$(docker context inspect colima -f '{{.Endpoints.docker.Host}}').`
+The `DOCKER_HOST` environment variable can be set by using the following command:
+
+[source,shell,subs="verbatim,attributes"]
+----
+$ export DOCKER_HOST=$(docker context inspect colima -f '{{.Endpoints.docker.Host}}')
+----
 
 The plugin can also be configured to use Colima daemon by providing connection details similar to those shown in the following example:
 

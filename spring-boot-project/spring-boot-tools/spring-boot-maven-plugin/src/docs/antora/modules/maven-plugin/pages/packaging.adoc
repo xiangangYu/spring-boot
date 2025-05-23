@@ -10,6 +10,10 @@ Packaging an executable archive is performed by the `repackage` goal, as shown i
 include::example$packaging/repackage-pom.xml[tags=repackage]
 ----
 
+WARNING: The `repackage` goal is not meant to be used alone on the command-line as it operates on the source
+`jar` (or `war`) produced by the `package` phase.
+To use this goal on the command-line, you must include the `package` phase: `mvn package spring-boot:repackage`.
+
 TIP: If you are using `spring-boot-starter-parent`, such execution is already pre-configured with a `repackage` execution ID so that only the plugin definition should be added.
 
 The example above repackages a `jar` or `war` archive that is built during the package phase of the Maven lifecycle, including any `provided` dependencies that are defined in the project.
@@ -164,7 +168,7 @@ The following configuration installs/deploys a single `task` classified artifact
 include::example$packaging/classified-artifact-pom.xml[tags=classified-artifact]
 ----
 
-As both the `maven-jar-plugin` and the `spring-boot-maven-plugin` runs at the same phase, it is important that the jar plugin is defined first (so that it runs before the repackage goal).
+As both the `maven-jar-plugin` and the `spring-boot-maven-plugin` run at the same phase, it is important that the jar plugin is defined first (so that it runs before the repackage goal).
 Again, if you are using `spring-boot-starter-parent`, this can be simplified as follows:
 
 [source,xml,indent=0,subs="verbatim,attributes"]

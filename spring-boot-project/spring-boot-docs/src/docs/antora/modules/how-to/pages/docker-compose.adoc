@@ -8,7 +8,7 @@ This section includes topics relating to the Docker Compose support in Spring Bo
 [[howto.docker-compose.jdbc-url]]
 == Customizing the JDBC URL
 
-When using `JdbcConnectionDetails` with Docker Compose, the parameters of the JDBC URL
+When using javadoc:org.springframework.boot.autoconfigure.jdbc.JdbcConnectionDetails[] with Docker Compose, the parameters of the JDBC URL
 can be customized by applying the `org.springframework.boot.jdbc.parameters` label to the
 service. For example:
 
@@ -32,7 +32,7 @@ With this Docker Compose file in place, the JDBC URL used is `jdbc:postgresql://
 
 
 [[howto.docker-compose.sharing-services]]
-== Sharing services between multiple applications
+== Sharing Services Between Multiple Applications
 
 If you want to share services between multiple applications, create the `compose.yaml` file in one of the applications and then use the configuration property configprop:spring.docker.compose.file[] in the other applications to reference the `compose.yaml` file.
 You should also set configprop:spring.docker.compose.lifecycle-management[] to `start-only`, as it defaults to `start-and-stop` and stopping one application would shut down the shared services for the other still running applications as well.

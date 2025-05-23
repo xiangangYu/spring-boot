@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.core.log.LogMessage;
 import org.springframework.data.domain.ScrollPosition;
 import org.springframework.graphql.ExecutionGraphQlService;
+import org.springframework.graphql.data.method.HandlerMethodArgumentResolver;
 import org.springframework.graphql.data.method.annotation.support.AnnotatedControllerConfigurer;
 import org.springframework.graphql.data.pagination.ConnectionFieldTypeVisitor;
 import org.springframework.graphql.data.pagination.CursorEncoder;
@@ -95,11 +96,15 @@ public class GraphQlAutoConfiguration {
 			ObjectProvider<SubscriptionExceptionResolver> subscriptionExceptionResolvers,
 			ObjectProvider<Instrumentation> instrumentations, ObjectProvider<RuntimeWiringConfigurer> wiringConfigurers,
 			ObjectProvider<GraphQlSourceBuilderCustomizer> sourceCustomizers) {
+
 		String[] schemaLocations = properties.getSchema().getLocations();
-		Resource[] schemaResources = resolveSchemaResources(resourcePatternResolver, schemaLocations,
-				properties.getSchema().getFileExtensions());
+		List<Resource> schemaResources = new ArrayList<>();
+		schemaResources.addAll(resolveSchemaResources(resourcePatternResolver, schemaLocations,
+				properties.getSchema().getFileExtensions()));
+		schemaResources.addAll(Arrays.asList(properties.getSchema().getAdditionalFiles()));
+
 		GraphQlSource.SchemaResourceBuilder builder = GraphQlSource.schemaResourceBuilder()
-			.schemaResources(schemaResources)
+			.schemaResources(schemaResources.toArray(new Resource[0]))
 			.exceptionResolvers(exceptionResolvers.orderedStream().toList())
 			.subscriptionExceptionResolvers(subscriptionExceptionResolvers.orderedStream().toList())
 			.instrumentation(instrumentations.orderedStream().toList());
@@ -115,7 +120,7 @@ public class GraphQlAutoConfiguration {
 		return builder.build();
 	}
 
-	private Resource[] resolveSchemaResources(ResourcePatternResolver resolver, String[] locations,
+	private List<Resource> resolveSchemaResources(ResourcePatternResolver resolver, String[] locations,
 			String[] extensions) {
 		List<Resource> resources = new ArrayList<>();
 		for (String location : locations) {
@@ -123,7 +128,7 @@ public class GraphQlAutoConfiguration {
 				resources.addAll(resolveSchemaResources(resolver, location + "*" + extension));
 			}
 		}
-		return resources.toArray(new Resource[0]);
+		return resources;
 	}
 
 	private List<Resource> resolveSchemaResources(ResourcePatternResolver resolver, String pattern) {
@@ -154,11 +159,13 @@ public class GraphQlAutoConfiguration {
 	@Bean
 	@ConditionalOnMissingBean
 	public AnnotatedControllerConfigurer annotatedControllerConfigurer(
-			@Qualifier(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME) ObjectProvider<Executor> executorProvider) {
+			@Qualifier(TaskExecutionAutoConfiguration.APPLICATION_TASK_EXECUTOR_BEAN_NAME) ObjectProvider<Executor> executorProvider,
+			ObjectProvider<HandlerMethodArgumentResolver> argumentResolvers) {
 		AnnotatedControllerConfigurer controllerConfigurer = new AnnotatedControllerConfigurer();
 		controllerConfigurer
 			.addFormatterRegistrar((registry) -> ApplicationConversionService.addBeans(registry, this.beanFactory));
 		executorProvider.ifAvailable(controllerConfigurer::setExecutor);
+		argumentResolvers.orderedStream().forEach(controllerConfigurer::addCustomArgumentResolver);
 		return controllerConfigurer;
 	}
 

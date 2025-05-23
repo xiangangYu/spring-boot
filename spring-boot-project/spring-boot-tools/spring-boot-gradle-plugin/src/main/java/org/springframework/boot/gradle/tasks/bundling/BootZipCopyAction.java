@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.lang.reflect.Method;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Collection;
@@ -349,8 +348,11 @@ class BootZipCopyAction implements CopyAction {
 
 		private void writeJarModeLibrary(String location, JarModeLibrary library) throws IOException {
 			String name = location + library.getName();
-			writeEntry(name, ZipEntryContentWriter.fromInputStream(library.openStream()), false,
-					(entry) -> prepareStoredEntry(library.openStream(), entry));
+			writeEntry(name, ZipEntryContentWriter.fromInputStream(library.openStream()), false, (entry) -> {
+				try (InputStream in = library.openStream()) {
+					prepareStoredEntry(library.openStream(), entry);
+				}
+			});
 			if (BootZipCopyAction.this.layerResolver != null) {
 				Layer layer = BootZipCopyAction.this.layerResolver.getLayer(library);
 				this.layerIndex.add(layer, name);
@@ -488,17 +490,12 @@ class BootZipCopyAction implements CopyAction {
 		}
 
 		private int getPermissions(FileCopyDetails details) {
-			if (GradleVersion.current().compareTo(GradleVersion.version("8.3")) >= 0) {
-				try {
-					Method getPermissionsMethod = details.getClass().getMethod("getPermissions");
-					getPermissionsMethod.setAccessible(true);
-					Object permissions = getPermissionsMethod.invoke(details);
-					return (int) permissions.getClass().getMethod("toUnixNumeric").invoke(permissions);
-				}
-				catch (Exception ex) {
-					throw new GradleException("Failed to get permissions", ex);
-				}
-			}
+			return (GradleVersion.current().compareTo(GradleVersion.version("8.3")) >= 0)
+					? details.getPermissions().toUnixNumeric() : getMode(details);
+		}
+
+		@SuppressWarnings("deprecation")
+		private int getMode(FileCopyDetails details) {
 			return details.getMode();
 		}
 

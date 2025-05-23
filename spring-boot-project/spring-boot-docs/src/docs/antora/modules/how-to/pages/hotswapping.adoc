@@ -47,6 +47,8 @@ See {code-spring-boot-autoconfigure-src}/thymeleaf/ThymeleafAutoConfiguration.ja
 If you use FreeMarker, set `spring.freemarker.cache` to `false`.
 See {code-spring-boot-autoconfigure-src}/freemarker/FreeMarkerAutoConfiguration.java[`FreeMarkerAutoConfiguration`] for other FreeMarker customization options.
 
+NOTE: Template caching for FreeMarker is not supported with WebFlux.
+
 
 
 [[howto.hotswapping.reload-templates.groovy]]
@@ -64,7 +66,7 @@ The `spring-boot-devtools` module includes support for automatic application res
 While not as fast as technologies such as https://www.jrebel.com/products/jrebel[JRebel] it is usually significantly faster than a "`cold start`".
 You should probably give it a try before investigating some of the more complex reload options discussed later in this document.
 
-For more details, see the xref:reference:using/devtools.adoc[Developer Tools] section.
+For more details, see the xref:reference:using/devtools.adoc[] section.
 
 
 

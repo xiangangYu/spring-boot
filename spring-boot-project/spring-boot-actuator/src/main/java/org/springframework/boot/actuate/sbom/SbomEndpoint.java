@@ -23,10 +23,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
+import org.springframework.aot.hint.RuntimeHints;
+import org.springframework.aot.hint.RuntimeHintsRegistrar;
 import org.springframework.boot.actuate.endpoint.OperationResponseBody;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
 import org.springframework.boot.actuate.endpoint.annotation.Selector;
+import org.springframework.boot.actuate.sbom.SbomEndpoint.SbomEndpointRuntimeHints;
+import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.util.StringUtils;
@@ -38,12 +42,15 @@ import org.springframework.util.StringUtils;
  * @since 3.3.0
  */
 @Endpoint(id = "sbom")
+@ImportRuntimeHints(SbomEndpointRuntimeHints.class)
 public class SbomEndpoint {
 
-	private static final List<String> DEFAULT_APPLICATION_SBOM_LOCATIONS = List.of("classpath:META-INF/sbom/bom.json",
-			"classpath:META-INF/sbom/application.cdx.json");
-
 	static final String APPLICATION_SBOM_ID = "application";
+
+	private static final List<AutodetectedSbom> AUTODETECTED_SBOMS = List.of(
+			new AutodetectedSbom(APPLICATION_SBOM_ID, "classpath:META-INF/sbom/bom.json", true),
+			new AutodetectedSbom(APPLICATION_SBOM_ID, "classpath:META-INF/sbom/application.cdx.json", true),
+			new AutodetectedSbom("native-image", "classpath:META-INF/native-image/sbom.json", false));
 
 	private final SbomProperties properties;
 
@@ -54,14 +61,26 @@ public class SbomEndpoint {
 	public SbomEndpoint(SbomProperties properties, ResourceLoader resourceLoader) {
 		this.properties = properties;
 		this.resourceLoader = resourceLoader;
-		this.sboms = Collections.unmodifiableMap(getSboms());
+		this.sboms = loadSboms();
 	}
 
-	private Map<String, Resource> getSboms() {
-		Map<String, Resource> result = new HashMap<>();
-		addKnownSboms(result);
-		addAdditionalSboms(result);
-		return result;
+	private Map<String, Resource> loadSboms() {
+		Map<String, Resource> sboms = new HashMap<>();
+		addConfiguredApplicationSbom(sboms);
+		addAdditionalSboms(sboms);
+		addAutodetectedSboms(sboms);
+		return Collections.unmodifiableMap(sboms);
+	}
+
+	private void addConfiguredApplicationSbom(Map<String, Resource> sboms) {
+		String location = this.properties.getApplication().getLocation();
+		if (!StringUtils.hasLength(location)) {
+			return;
+		}
+		Resource resource = loadResource(location);
+		if (resource != null) {
+			sboms.put(APPLICATION_SBOM_ID, resource);
+		}
 	}
 
 	private void addAdditionalSboms(Map<String, Resource> result) {
@@ -75,34 +94,16 @@ public class SbomEndpoint {
 		});
 	}
 
-	private void addKnownSboms(Map<String, Resource> result) {
-		Resource applicationSbom = getApplicationSbom();
-		if (applicationSbom != null) {
-			result.put(APPLICATION_SBOM_ID, applicationSbom);
-		}
-	}
-
-	@ReadOperation
-	Sboms sboms() {
-		return new Sboms(new TreeSet<>(this.sboms.keySet()));
-	}
-
-	@ReadOperation
-	Resource sbom(@Selector String id) {
-		return this.sboms.get(id);
-	}
-
-	private Resource getApplicationSbom() {
-		if (StringUtils.hasLength(this.properties.getApplication().getLocation())) {
-			return loadResource(this.properties.getApplication().getLocation());
-		}
-		for (String location : DEFAULT_APPLICATION_SBOM_LOCATIONS) {
-			Resource resource = this.resourceLoader.getResource(location);
+	private void addAutodetectedSboms(Map<String, Resource> sboms) {
+		for (AutodetectedSbom sbom : AUTODETECTED_SBOMS) {
+			if (sboms.containsKey(sbom.id())) {
+				continue;
+			}
+			Resource resource = this.resourceLoader.getResource(sbom.resource());
 			if (resource.exists()) {
-				return resource;
+				sboms.put(sbom.id(), resource);
 			}
 		}
-		return null;
 	}
 
 	private Resource loadResource(String location) {
@@ -118,6 +119,16 @@ public class SbomEndpoint {
 			return null;
 		}
 		throw new IllegalStateException("Resource '%s' doesn't exist and it's not marked optional".formatted(location));
+	}
+
+	@ReadOperation
+	Sboms sboms() {
+		return new Sboms(new TreeSet<>(this.sboms.keySet()));
+	}
+
+	@ReadOperation
+	Resource sbom(@Selector String id) {
+		return this.sboms.get(id);
 	}
 
 	record Sboms(Collection<String> ids) implements OperationResponseBody {
@@ -139,6 +150,29 @@ public class SbomEndpoint {
 		private static String stripOptionalPrefix(String location) {
 			return location.substring(OPTIONAL_PREFIX.length());
 		}
+	}
+
+	private record AutodetectedSbom(String id, String resource, boolean needsHints) {
+		void registerHintsIfNeeded(RuntimeHints hints) {
+			if (this.needsHints) {
+				hints.resources().registerPattern(stripClasspathPrefix(this.resource));
+			}
+		}
+
+		private String stripClasspathPrefix(String location) {
+			return location.substring("classpath:".length());
+		}
+	}
+
+	static class SbomEndpointRuntimeHints implements RuntimeHintsRegistrar {
+
+		@Override
+		public void registerHints(RuntimeHints hints, ClassLoader classLoader) {
+			for (AutodetectedSbom sbom : AUTODETECTED_SBOMS) {
+				sbom.registerHintsIfNeeded(hints);
+			}
+		}
+
 	}
 
 }

@@ -51,7 +51,7 @@ class KotlinConventions {
 	void apply(Project project) {
 		project.getPlugins().withId("org.jetbrains.kotlin.jvm", (plugin) -> {
 			project.getTasks().withType(KotlinCompile.class, this::configure);
-			configureDokkatoo(project);
+			project.getPlugins().withType(DokkatooHtmlPlugin.class, (dokkatooPlugin) -> configureDokkatoo(project));
 		});
 	}
 
@@ -61,31 +61,33 @@ class KotlinConventions {
 		kotlinOptions.setLanguageVersion("1.7");
 		kotlinOptions.setJvmTarget("17");
 		kotlinOptions.setAllWarningsAsErrors(true);
-		List<String> freeCompilerArgs = new ArrayList<>(compile.getKotlinOptions().getFreeCompilerArgs());
+		List<String> freeCompilerArgs = new ArrayList<>(kotlinOptions.getFreeCompilerArgs());
 		freeCompilerArgs.add("-Xsuppress-version-warnings");
-		compile.getKotlinOptions().setFreeCompilerArgs(freeCompilerArgs);
+		kotlinOptions.setFreeCompilerArgs(freeCompilerArgs);
 	}
 
 	private void configureDokkatoo(Project project) {
-		project.getPlugins().apply(DokkatooHtmlPlugin.class);
 		DokkatooExtension dokkatoo = project.getExtensions().getByType(DokkatooExtension.class);
-		dokkatoo.getDokkatooSourceSets().named(SourceSet.MAIN_SOURCE_SET_NAME).configure((sourceSet) -> {
-			sourceSet.getSourceRoots().setFrom(project.file("src/main/kotlin"));
-			sourceSet.getClasspath()
-				.from(project.getExtensions()
-					.getByType(SourceSetContainer.class)
-					.getByName(SourceSet.MAIN_SOURCE_SET_NAME)
-					.getOutput());
-			sourceSet.getExternalDocumentationLinks().create("spring-boot-javadoc", (link) -> {
-				link.getUrl().set(URI.create("https://docs.spring.io/spring-boot/api/java/"));
-				link.getPackageListUrl().set(URI.create("https://docs.spring.io/spring-boot/api/java/element-list"));
-			});
-			sourceSet.getExternalDocumentationLinks().create("spring-framework-javadoc", (link) -> {
-				String url = "https://docs.spring.io/spring-framework/docs/%s/javadoc-api/"
-					.formatted(project.property("springFrameworkVersion"));
-				link.getUrl().set(URI.create(url));
-				link.getPackageListUrl().set(URI.create(url + "/element-list"));
-			});
+		dokkatoo.getDokkatooSourceSets().configureEach((sourceSet) -> {
+			if (SourceSet.MAIN_SOURCE_SET_NAME.equals(sourceSet.getName())) {
+				sourceSet.getSourceRoots().setFrom(project.file("src/main/kotlin"));
+				sourceSet.getClasspath()
+					.from(project.getExtensions()
+						.getByType(SourceSetContainer.class)
+						.getByName(SourceSet.MAIN_SOURCE_SET_NAME)
+						.getOutput());
+				sourceSet.getExternalDocumentationLinks().create("spring-boot-javadoc", (link) -> {
+					link.getUrl().set(URI.create("https://docs.spring.io/spring-boot/api/java/"));
+					link.getPackageListUrl()
+						.set(URI.create("https://docs.spring.io/spring-boot/api/java/element-list"));
+				});
+				sourceSet.getExternalDocumentationLinks().create("spring-framework-javadoc", (link) -> {
+					String url = "https://docs.spring.io/spring-framework/docs/%s/javadoc-api/"
+						.formatted(project.property("springFrameworkVersion"));
+					link.getUrl().set(URI.create(url));
+					link.getPackageListUrl().set(URI.create(url + "/element-list"));
+				});
+			}
 		});
 	}
 

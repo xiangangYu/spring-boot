@@ -24,5 +24,7 @@ dependencyManagement {
 }
 
 repositories {
-	maven { url 'file:repository' }
+	maven {
+		url = 'repository'
+	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package org.springframework.boot.autoconfigure.pulsar;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -30,12 +29,11 @@ import org.apache.pulsar.client.api.Schema;
 import org.apache.pulsar.client.impl.AutoClusterFailover;
 import org.apache.pulsar.common.schema.KeyValueEncodingType;
 import org.assertj.core.api.InstanceOfAssertFactories;
-import org.assertj.core.api.InstanceOfAssertFactory;
-import org.assertj.core.api.MapAssert;
+import org.assertj.core.api.ThrowingConsumer;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InOrder;
-import org.mockito.Mockito;
 
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -49,6 +47,7 @@ import org.springframework.pulsar.core.PulsarAdminBuilderCustomizer;
 import org.springframework.pulsar.core.PulsarAdministration;
 import org.springframework.pulsar.core.PulsarClientBuilderCustomizer;
 import org.springframework.pulsar.core.PulsarClientFactory;
+import org.springframework.pulsar.core.PulsarTopicBuilder;
 import org.springframework.pulsar.core.SchemaResolver;
 import org.springframework.pulsar.core.SchemaResolver.SchemaResolverCustomizer;
 import org.springframework.pulsar.core.TopicResolver;
@@ -56,7 +55,6 @@ import org.springframework.pulsar.function.PulsarFunctionAdministration;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.entry;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -83,6 +81,15 @@ class PulsarConfigurationTests {
 			.withBean("customPulsarConnectionDetails", PulsarConnectionDetails.class, () -> customConnectionDetails)
 			.run((context) -> assertThat(context).getBean(PulsarConnectionDetails.class)
 				.isSameAs(customConnectionDetails));
+	}
+
+	@Test
+	void whenHasUserDefinedContainerFactoryCustomizersBeanDoesNotAutoConfigureBean() {
+		PulsarContainerFactoryCustomizers customizers = mock(PulsarContainerFactoryCustomizers.class);
+		this.contextRunner
+			.withBean("customContainerFactoryCustomizers", PulsarContainerFactoryCustomizers.class, () -> customizers)
+			.run((context) -> assertThat(context).getBean(PulsarContainerFactoryCustomizers.class)
+				.isSameAs(customizers));
 	}
 
 	@Nested
@@ -143,7 +150,7 @@ class PulsarConfigurationTests {
 						.getField(clientFactory, "customizer");
 					customizeAction.accept(pulsarClientBuilderCustomizer, target);
 					InOrder ordered = inOrder(target);
-					ordered.verify(target).serviceUrlProvider(Mockito.any(AutoClusterFailover.class));
+					ordered.verify(target).serviceUrlProvider(ArgumentMatchers.any(AutoClusterFailover.class));
 					assertThat(pulsarProperties.getClient().getFailover().getDelay()).isEqualTo(Duration.ofSeconds(15));
 					assertThat(pulsarProperties.getClient().getFailover().getSwitchBackDelay())
 						.isEqualTo(Duration.ofSeconds(30));
@@ -225,10 +232,6 @@ class PulsarConfigurationTests {
 	@Nested
 	class SchemaResolverTests {
 
-		@SuppressWarnings("rawtypes")
-		private static final InstanceOfAssertFactory<Map, MapAssert<Class, Schema>> CLASS_SCHEMA_MAP = InstanceOfAssertFactories
-			.map(Class.class, Schema.class);
-
 		private final ApplicationContextRunner contextRunner = PulsarConfigurationTests.this.contextRunner;
 
 		@Test
@@ -244,8 +247,7 @@ class PulsarConfigurationTests {
 				.addCustomSchemaMapping(TestRecord.class, Schema.STRING);
 			this.contextRunner.withBean("schemaResolverCustomizer", SchemaResolverCustomizer.class, () -> customizer)
 				.run((context) -> assertThat(context).getBean(DefaultSchemaResolver.class)
-					.extracting(DefaultSchemaResolver::getCustomSchemaMappings, InstanceOfAssertFactories.MAP)
-					.containsEntry(TestRecord.class, Schema.STRING));
+					.satisfies(customSchemaMappingOf(TestRecord.class, Schema.STRING)));
 		}
 
 		@Test
@@ -255,8 +257,7 @@ class PulsarConfigurationTests {
 			properties.add("spring.pulsar.defaults.type-mappings[0].schema-info.schema-type=STRING");
 			this.contextRunner.withPropertyValues(properties.toArray(String[]::new))
 				.run((context) -> assertThat(context).getBean(DefaultSchemaResolver.class)
-					.extracting(DefaultSchemaResolver::getCustomSchemaMappings, InstanceOfAssertFactories.MAP)
-					.containsOnly(entry(TestRecord.class, Schema.STRING)));
+					.satisfies(customSchemaMappingOf(TestRecord.class, Schema.STRING)));
 		}
 
 		@Test
@@ -267,8 +268,7 @@ class PulsarConfigurationTests {
 			Schema<?> expectedSchema = Schema.JSON(TestRecord.class);
 			this.contextRunner.withPropertyValues(properties.toArray(String[]::new))
 				.run((context) -> assertThat(context).getBean(DefaultSchemaResolver.class)
-					.extracting(DefaultSchemaResolver::getCustomSchemaMappings, CLASS_SCHEMA_MAP)
-					.hasEntrySatisfying(TestRecord.class, schemaEqualTo(expectedSchema)));
+					.satisfies(customSchemaMappingOf(TestRecord.class, expectedSchema)));
 		}
 
 		@Test
@@ -281,12 +281,16 @@ class PulsarConfigurationTests {
 					KeyValueEncodingType.INLINE);
 			this.contextRunner.withPropertyValues(properties.toArray(String[]::new))
 				.run((context) -> assertThat(context).getBean(DefaultSchemaResolver.class)
-					.extracting(DefaultSchemaResolver::getCustomSchemaMappings, CLASS_SCHEMA_MAP)
-					.hasEntrySatisfying(TestRecord.class, schemaEqualTo(expectedSchema)));
+					.satisfies(customSchemaMappingOf(TestRecord.class, expectedSchema)));
 		}
 
-		@SuppressWarnings("rawtypes")
-		private Consumer<Schema> schemaEqualTo(Schema<?> expected) {
+		private ThrowingConsumer<DefaultSchemaResolver> customSchemaMappingOf(Class<?> messageType,
+				Schema<?> expectedSchema) {
+			return (resolver) -> assertThat(resolver.getCustomSchemaMapping(messageType))
+				.hasValueSatisfying(schemaEqualTo(expectedSchema));
+		}
+
+		private Consumer<Schema<?>> schemaEqualTo(Schema<?> expected) {
 			return (actual) -> assertThat(actual.getSchemaInfo()).isEqualTo(expected.getSchemaInfo());
 		}
 
@@ -314,8 +318,50 @@ class PulsarConfigurationTests {
 			this.contextRunner.withPropertyValues(properties.toArray(String[]::new))
 				.run((context) -> assertThat(context).getBean(TopicResolver.class)
 					.asInstanceOf(InstanceOfAssertFactories.type(DefaultTopicResolver.class))
-					.extracting(DefaultTopicResolver::getCustomTopicMappings, InstanceOfAssertFactories.MAP)
-					.containsOnly(entry(TestRecord.class, "foo-topic"), entry(String.class, "string-topic")));
+					.satisfies((resolver) -> {
+						assertThat(resolver.getCustomTopicMapping(TestRecord.class)).hasValue("foo-topic");
+						assertThat(resolver.getCustomTopicMapping(String.class)).hasValue("string-topic");
+					}));
+		}
+
+	}
+
+	@Nested
+	class TopicBuilderTests {
+
+		private final ApplicationContextRunner contextRunner = PulsarConfigurationTests.this.contextRunner;
+
+		@Test
+		void whenHasUserDefinedBeanDoesNotAutoConfigureBean() {
+			PulsarTopicBuilder topicBuilder = mock(PulsarTopicBuilder.class);
+			this.contextRunner.withBean("customPulsarTopicBuilder", PulsarTopicBuilder.class, () -> topicBuilder)
+				.run((context) -> assertThat(context).getBean(PulsarTopicBuilder.class).isSameAs(topicBuilder));
+		}
+
+		@Test
+		void whenHasDefaultsTopicDisabledPropertyDoesNotCreateBean() {
+			this.contextRunner.withPropertyValues("spring.pulsar.defaults.topic.enabled=false")
+				.run((context) -> assertThat(context).doesNotHaveBean(PulsarTopicBuilder.class));
+		}
+
+		@Test
+		void whenHasDefaultsTenantAndNamespaceAppliedToTopicBuilder() {
+			List<String> properties = new ArrayList<>();
+			properties.add("spring.pulsar.defaults.topic.tenant=my-tenant");
+			properties.add("spring.pulsar.defaults.topic.namespace=my-namespace");
+			this.contextRunner.withPropertyValues(properties.toArray(String[]::new))
+				.run((context) -> assertThat(context).getBean(PulsarTopicBuilder.class)
+					.asInstanceOf(InstanceOfAssertFactories.type(PulsarTopicBuilder.class))
+					.satisfies((topicBuilder) -> {
+						assertThat(topicBuilder).hasFieldOrPropertyWithValue("defaultTenant", "my-tenant");
+						assertThat(topicBuilder).hasFieldOrPropertyWithValue("defaultNamespace", "my-namespace");
+					}));
+		}
+
+		@Test
+		void beanHasScopePrototype() {
+			this.contextRunner.run((context) -> assertThat(context.getBean(PulsarTopicBuilder.class))
+				.isNotSameAs(context.getBean(PulsarTopicBuilder.class)));
 		}
 
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,11 +26,13 @@ import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import org.springframework.boot.buildpack.platform.json.MappedObject;
+import org.springframework.util.StringUtils;
 
 /**
  * Image details as returned from {@code Docker inspect}.
  *
  * @author Phillip Webb
+ * @author Scott Frederick
  * @since 2.3.0
  */
 public class Image extends MappedObject {
@@ -43,6 +45,10 @@ public class Image extends MappedObject {
 
 	private final String os;
 
+	private final String architecture;
+
+	private final String variant;
+
 	private final String created;
 
 	Image(JsonNode node) {
@@ -51,6 +57,8 @@ public class Image extends MappedObject {
 		this.config = new ImageConfig(getNode().at("/Config"));
 		this.layers = extractLayers(valueAt("/RootFS/Layers", String[].class));
 		this.os = valueAt("/Os", String.class);
+		this.architecture = valueAt("/Architecture", String.class);
+		this.variant = valueAt("/Variant", String.class);
 		this.created = valueAt("/Created", String.class);
 	}
 
@@ -90,7 +98,23 @@ public class Image extends MappedObject {
 	 * @return the image OS
 	 */
 	public String getOs() {
-		return (this.os != null) ? this.os : "linux";
+		return (StringUtils.hasText(this.os)) ? this.os : "linux";
+	}
+
+	/**
+	 * Return the architecture of the image.
+	 * @return the image architecture
+	 */
+	public String getArchitecture() {
+		return this.architecture;
+	}
+
+	/**
+	 * Return the variant of the image.
+	 * @return the image variant
+	 */
+	public String getVariant() {
+		return this.variant;
 	}
 
 	/**

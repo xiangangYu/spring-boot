@@ -8,13 +8,13 @@ The plugin includes a run goal which can be used to launch your application from
 $ mvn spring-boot:run
 ----
 
-Application arguments can be specified using the `arguments` parameter, see xref:run#run.examples.using-application-arguments[using application arguments] for more details.
+Application arguments can be specified using the `arguments` parameter, see xref:run.adoc#run.examples.using-application-arguments[using application arguments] for more details.
 
 The application is executed in a forked process and setting properties on the command-line will not affect the application.
-If you need to specify some JVM arguments (that is for debugging purposes), you can use the `jvmArguments` parameter, see xref:run#run.examples.debug[Debug the application] for more details.
-There is also explicit support for xref:run#run.examples.system-properties[system properties] and xref:run#run.examples.environment-variables[environment variables].
+If you need to specify some JVM arguments (that is for debugging purposes), you can use the `jvmArguments` parameter, see xref:run.adoc#run.examples.debug[Debug the application] for more details.
+There is also explicit support for xref:run.adoc#run.examples.system-properties[system properties] and xref:run.adoc#run.examples.environment-variables[environment variables].
 
-As enabling a profile is quite common, there is dedicated `profiles` property that offers a shortcut for `-Dspring-boot.run.jvmArguments="-Dspring.profiles.active=dev"`, see xref:run#run.examples.specify-active-profiles[Specify active profiles].
+As enabling a profile is quite common, there is dedicated `profiles` property that offers a shortcut for `-Dspring-boot.run.jvmArguments="-Dspring.profiles.active=dev"`, see xref:run.adoc#run.examples.specify-active-profiles[Specify active profiles].
 
 Spring Boot `devtools` is a module to improve the development-time experience when working on Spring Boot applications.
 To enable it, just add the following dependency to your project:
@@ -24,7 +24,7 @@ To enable it, just add the following dependency to your project:
 include::example$running/devtools-pom.xml[tags=devtools]
 ----
 
-When `devtools` is running, it detects change when you recompile your application and automatically refreshes it.
+When `devtools` is running, it detects changes when you recompile your application and automatically refreshes it.
 This works for not only resources but code as well.
 It also provides a LiveReload server so that it can automatically trigger a browser refresh whenever things change.
 
@@ -36,7 +36,7 @@ Just include the following property in your project:
 spring.devtools.remote.restart.enabled=false
 ----
 
-Prior to `devtools`, the plugin supported hot refreshing of resources by default which has now be disabled in favour of the solution described above.
+Prior to `devtools`, the plugin supported hot refreshing of resources by default which has now been disabled in favour of the solution described above.
 You can restore it at any time by configuring your project:
 
 [source,xml,subs="verbatim,attributes"]

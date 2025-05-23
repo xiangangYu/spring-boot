@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,10 @@
 
 package org.springframework.boot;
 
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.TimeUnit;
@@ -111,15 +112,17 @@ class SpringApplicationShutdownHook implements Runnable {
 	public void run() {
 		Set<ConfigurableApplicationContext> contexts;
 		Set<ConfigurableApplicationContext> closedContexts;
-		Set<Runnable> actions;
+		List<Handler> handlers;
 		synchronized (SpringApplicationShutdownHook.class) {
 			this.inProgress = true;
 			contexts = new LinkedHashSet<>(this.contexts);
 			closedContexts = new LinkedHashSet<>(this.closedContexts);
-			actions = new LinkedHashSet<>(this.handlers.getActions());
+			handlers = new ArrayList<>(this.handlers.getActions());
+			Collections.reverse(handlers);
 		}
 		contexts.forEach(this::closeAndWait);
 		closedContexts.forEach(this::closeAndWait);
+		handlers.forEach(Handler::run);
 		actions.forEach(Runnable::run);
 		/**
 		 * 上面这种使用forEach迭代进行lambda执行的方式值得学习
@@ -181,28 +184,28 @@ class SpringApplicationShutdownHook implements Runnable {
 	 */
 	private final class Handlers implements SpringApplicationShutdownHandlers, Runnable {
 
-		private final Set<Runnable> actions = Collections.newSetFromMap(new IdentityHashMap<>());
+		private final Set<Handler> actions = new LinkedHashSet<>();
 
 		@Override
 		public void add(Runnable action) {
-			Assert.notNull(action, "Action must not be null");
+			Assert.notNull(action, "'action' must not be null");
 			addRuntimeShutdownHookIfNecessary();
 			synchronized (SpringApplicationShutdownHook.class) {
 				assertNotInProgress();
-				this.actions.add(action);
+				this.actions.add(new Handler(action));
 			}
 		}
 
 		@Override
 		public void remove(Runnable action) {
-			Assert.notNull(action, "Action must not be null");
+			Assert.notNull(action, "'action' must not be null");
 			synchronized (SpringApplicationShutdownHook.class) {
 				assertNotInProgress();
-				this.actions.remove(action);
+				this.actions.remove(new Handler(action));
 			}
 		}
 
-		Set<Runnable> getActions() {
+		Set<Handler> getActions() {
 			return this.actions;
 		}
 
@@ -210,6 +213,36 @@ class SpringApplicationShutdownHook implements Runnable {
 		public void run() {
 			SpringApplicationShutdownHook.this.run();
 			SpringApplicationShutdownHook.this.reset();
+		}
+
+	}
+
+	/**
+	 * A single handler that uses object identity for {@link #equals(Object)} and
+	 * {@link #hashCode()}.
+	 *
+	 * @param runnable the handler runner
+	 */
+	record Handler(Runnable runnable) {
+
+		@Override
+		public int hashCode() {
+			return System.identityHashCode(this.runnable);
+		}
+
+		@Override
+		public boolean equals(Object obj) {
+			if (this == obj) {
+				return true;
+			}
+			if (obj == null || getClass() != obj.getClass()) {
+				return false;
+			}
+			return this.runnable == ((Handler) obj).runnable;
+		}
+
+		void run() {
+			this.runnable.run();
 		}
 
 	}

@@ -24,11 +24,13 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.lifecycle.Startable;
 import org.testcontainers.utility.TestcontainersConfiguration;
 
+import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.beans.factory.support.AbstractBeanFactory;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.aot.AbstractAotProcessor;
 import org.springframework.core.env.MapPropertySource;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -144,6 +146,17 @@ class TestcontainersLifecycleApplicationContextInitializerTests {
 	}
 
 	@Test
+	void doesNotStartContainersWhenAotProcessingIsInProgress() {
+		GenericContainer<?> container = mock(GenericContainer.class);
+		AnnotationConfigApplicationContext applicationContext = createApplicationContext(container);
+		then(container).shouldHaveNoInteractions();
+		withSystemProperty(AbstractAotProcessor.AOT_PROCESSING, "true",
+				() -> applicationContext.refreshForAotProcessing(new RuntimeHints()));
+		then(container).shouldHaveNoInteractions();
+		applicationContext.close();
+	}
+
+	@Test
 	void setupStartupBasedOnEnvironmentProperty() {
 		AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
 		applicationContext.getEnvironment()
@@ -159,10 +172,33 @@ class TestcontainersLifecycleApplicationContextInitializerTests {
 		assertThat(beanPostProcessor).extracting("startup").isEqualTo(TestcontainersStartup.PARALLEL);
 	}
 
+	private void withSystemProperty(String name, String value, Runnable action) {
+		String previousValue = System.getProperty(name);
+		System.setProperty(name, value);
+		try {
+			action.run();
+		}
+		finally {
+			if (previousValue == null) {
+				System.clearProperty(name);
+			}
+			else {
+				System.setProperty(name, previousValue);
+			}
+		}
+	}
+
 	private AnnotationConfigApplicationContext createApplicationContext(Startable container) {
 		AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
 		new TestcontainersLifecycleApplicationContextInitializer().initialize(applicationContext);
 		applicationContext.registerBean("container", Startable.class, () -> container);
+		return applicationContext;
+	}
+
+	private AnnotationConfigApplicationContext createApplicationContext(GenericContainer<?> container) {
+		AnnotationConfigApplicationContext applicationContext = new AnnotationConfigApplicationContext();
+		new TestcontainersLifecycleApplicationContextInitializer().initialize(applicationContext);
+		applicationContext.registerBean("container", GenericContainer.class, () -> container);
 		return applicationContext;
 	}
 

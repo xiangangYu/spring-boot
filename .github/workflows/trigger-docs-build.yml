@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
     inputs:
       build-refname:
-        description: Enter git refname to build (e.g., 1.0.x).
+        description: 'Git refname to build (e.g., 1.0.x)'
         required: false
       build-version:
-        description: Enter the version being build (e.g. 1.0.3-SNAPSHOT)
+        description: 'Version being build (e.g. 1.0.3-SNAPSHOT)'
         required: false  
 permissions:
   actions: write
@@ -17,7 +17,7 @@ jobs:
   trigger-docs-build:
     name: Trigger Docs Build
     if: github.repository_owner == 'spring-projects'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.UBUNTU_SMALL || 'ubuntu-latest' }}
     steps:
     - name: Check Out
       uses: actions/checkout@v4

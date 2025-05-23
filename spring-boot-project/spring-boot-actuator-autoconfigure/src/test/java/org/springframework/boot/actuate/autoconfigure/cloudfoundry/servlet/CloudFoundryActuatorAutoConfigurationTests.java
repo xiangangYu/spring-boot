@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2023 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,15 +54,12 @@ import org.springframework.security.config.BeanIds;
 import org.springframework.security.web.FilterChainProxy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.filter.CompositeFilter;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 /**
  * Tests for {@link CloudFoundryActuatorAutoConfiguration}.
@@ -109,8 +106,8 @@ class CloudFoundryActuatorAutoConfigurationTests {
 			.withPropertyValues("VCAP_APPLICATION:---", "vcap.application.application_id:my-app-id",
 					"vcap.application.cf_api:https://my-cloud-controller.com")
 			.run((context) -> {
-				MockMvc mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
-				mockMvc.perform(get("/cloudfoundryapplication")).andExpect(header().string("Content-Type", V3_JSON));
+				MockMvcTester mvc = MockMvcTester.from(context);
+				assertThat(mvc.get().uri("/cloudfoundryapplication")).hasHeader("Content-Type", V3_JSON);
 			});
 	}
 
@@ -178,15 +175,16 @@ class CloudFoundryActuatorAutoConfigurationTests {
 			.withPropertyValues("VCAP_APPLICATION:---", "vcap.application.application_id:my-app-id")
 			.run((context) -> {
 				SecurityFilterChain chain = getSecurityFilterChain(context);
-				assertThat(chain.getFilters()).isEmpty();
 				MockHttpServletRequest request = new MockHttpServletRequest();
 				testCloudFoundrySecurity(request, BASE_PATH, chain);
 				testCloudFoundrySecurity(request, BASE_PATH + "/", chain);
 				testCloudFoundrySecurity(request, BASE_PATH + "/test", chain);
 				testCloudFoundrySecurity(request, BASE_PATH + "/test/a", chain);
 				request.setServletPath(BASE_PATH + "/other-path");
+				request.setRequestURI(BASE_PATH + "/other-path");
 				assertThat(chain.matches(request)).isFalse();
 				request.setServletPath("/some-other-path");
+				request.setRequestURI("/some-other-path");
 				assertThat(chain.matches(request)).isFalse();
 			});
 	}
@@ -212,9 +210,9 @@ class CloudFoundryActuatorAutoConfigurationTests {
 		throw new IllegalStateException("No FilterChainProxy found");
 	}
 
-	private static void testCloudFoundrySecurity(MockHttpServletRequest request, String servletPath,
+	private static void testCloudFoundrySecurity(MockHttpServletRequest request, String requestUri,
 			SecurityFilterChain chain) {
-		request.setServletPath(servletPath);
+		request.setRequestURI(requestUri);
 		assertThat(chain.matches(request)).isTrue();
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2024 the original author or authors.
+ * Copyright 2012-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,10 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Date;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.boot.web.error.Error;
 import org.springframework.boot.web.error.ErrorAttributeOptions;
 import org.springframework.boot.web.error.ErrorAttributeOptions.Include;
 import org.springframework.core.annotation.MergedAnnotation;
@@ -32,7 +32,6 @@ import org.springframework.core.annotation.MergedAnnotations.SearchStrategy;
 import org.springframework.http.HttpStatus;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
-import org.springframework.validation.ObjectError;
 import org.springframework.validation.method.MethodValidationResult;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -48,8 +47,8 @@ import org.springframework.web.server.ServerWebExchange;
  * <li>error - The error reason</li>
  * <li>exception - The class name of the root exception (if configured)</li>
  * <li>message - The exception message (if configured)</li>
- * <li>errors - Any {@link ObjectError}s from a {@link BindingResult} or
- * {@link MethodValidationResult} exception (if configured)</li>
+ * <li>errors - Any validation errors wrapped in {@link Error}, derived from a
+ * {@link BindingResult} or {@link MethodValidationResult} exception (if configured)</li>
  * <li>trace - The exception stack trace (if configured)</li>
  * <li>path - The URL path when the exception was raised</li>
  * <li>requestId - Unique ID associated with the current request</li>
@@ -61,6 +60,7 @@ import org.springframework.web.server.ServerWebExchange;
  * @author Scott Frederick
  * @author Moritz Halbritter
  * @author Yanming Zhou
+ * @author Yongjun Hong
  * @since 2.0.0
  * @see ErrorAttributes
  */
@@ -71,21 +71,7 @@ public class DefaultErrorAttributes implements ErrorAttributes {
 	@Override
 	public Map<String, Object> getErrorAttributes(ServerRequest request, ErrorAttributeOptions options) {
 		Map<String, Object> errorAttributes = getErrorAttributes(request, options.isIncluded(Include.STACK_TRACE));
-		if (!options.isIncluded(Include.EXCEPTION)) {
-			errorAttributes.remove("exception");
-		}
-		if (!options.isIncluded(Include.STACK_TRACE)) {
-			errorAttributes.remove("trace");
-		}
-		if (!options.isIncluded(Include.MESSAGE) && errorAttributes.get("message") != null) {
-			errorAttributes.remove("message");
-		}
-		if (!options.isIncluded(Include.BINDING_ERRORS)) {
-			errorAttributes.remove("errors");
-		}
-		if (!options.isIncluded(Include.PATH)) {
-			errorAttributes.remove("path");
-		}
+		options.retainIncluded(errorAttributes);
 		return errorAttributes;
 	}
 
@@ -126,17 +112,21 @@ public class DefaultErrorAttributes implements ErrorAttributes {
 			MergedAnnotation<ResponseStatus> responseStatusAnnotation, boolean includeStackTrace) {
 		Throwable exception;
 		if (error instanceof BindingResult bindingResult) {
-			errorAttributes.put("message", error.getMessage());
-			errorAttributes.put("errors", bindingResult.getAllErrors());
 			exception = error;
+			errorAttributes.put("message", error.getMessage());
+			errorAttributes.put("errors", Error.wrap(bindingResult.getAllErrors()));
 		}
 		else if (error instanceof MethodValidationResult methodValidationResult) {
-			addMessageAndErrorsFromMethodValidationResult(errorAttributes, methodValidationResult);
 			exception = error;
+			errorAttributes.put("message", getErrorMessage(methodValidationResult));
+			errorAttributes.put("errors", Error.wrap(methodValidationResult.getAllErrors()));
 		}
 		else if (error instanceof ResponseStatusException responseStatusException) {
-			errorAttributes.put("message", responseStatusException.getReason());
 			exception = (responseStatusException.getCause() != null) ? responseStatusException.getCause() : error;
+			errorAttributes.put("message", responseStatusException.getReason());
+			if (exception instanceof BindingResult bindingResult) {
+				errorAttributes.put("errors", Error.wrap(bindingResult.getAllErrors()));
+			}
 		}
 		else {
 			exception = error;
@@ -150,16 +140,9 @@ public class DefaultErrorAttributes implements ErrorAttributes {
 		}
 	}
 
-	private void addMessageAndErrorsFromMethodValidationResult(Map<String, Object> errorAttributes,
-			MethodValidationResult result) {
-		List<ObjectError> errors = result.getAllErrors()
-			.stream()
-			.filter(ObjectError.class::isInstance)
-			.map(ObjectError.class::cast)
-			.toList();
-		errorAttributes.put("message",
-				"Validation failed for method='" + result.getMethod() + "'. Error count: " + errors.size());
-		errorAttributes.put("errors", errors);
+	private String getErrorMessage(MethodValidationResult methodValidationResult) {
+		return "Validation failed for method='%s'. Error count: %s".formatted(methodValidationResult.getMethod(),
+				methodValidationResult.getAllErrors().size());
 	}
 
 	@Override

@@ -2,10 +2,13 @@ import org.springframework.boot.gradle.tasks.bundling.BootJar
 
 plugins {
 	id "java"
-	id "org.springframework.boot" version "3.3.0-SNAPSHOT"
+	id "org.springframework.boot"
 }
 
-apply plugin: "io.spring.dependency-management"
+java {
+	sourceCompatibility = '17'
+	targetCompatibility = '17'
+}
 
 repositories {
 	maven { url "file:${rootDir}/../int-test-maven-repository"}
@@ -32,6 +35,7 @@ configurations {
 dependencies {
 	compileOnly("org.springframework:spring-webflux")
 
+	implementation(platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES))
 	implementation("org.springframework.boot:spring-boot-starter")
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 
